@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.*;
 import java.awt.datatransfer.DataFlavor;
 import java.util.prefs.Preferences;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 public class DocToTextApp extends JFrame {
 
@@ -132,7 +134,7 @@ public class DocToTextApp extends JFrame {
 		// ==================================================
 
 		 JTabbedPane tabbedPane = new JTabbedPane();
-		 tabbedPane.addTab("엑셀 추출 (.xlsx)", createExcelTabPanel());
+		 tabbedPane.addTab("엑셀(.xlsx)", createExcelTabPanel());
 
 		 phasePanel.add(tabbedPane, gbc);
 
@@ -151,6 +153,37 @@ public class DocToTextApp extends JFrame {
 		this.add(bottomPanel, BorderLayout.SOUTH);
 
 		SwingUtilities.updateComponentTreeUI(this);
+
+		// 엑셀파일 변환시작 버튼 리스너
+		btnExcelStart.addActionListener(e -> {
+			String path = excelTargetPath.getText();
+
+			if (path == null || path.trim().isEmpty()){
+				appendLog("엑셀 파일을 먼저 선택해 주세요.");
+				return;
+			}
+
+			File targetFile = new File(path);
+
+			if (!targetFile.exists() || !targetFile.isFile()){
+				appendLog("해당 경로에 실제 파일이 존재하지 않습니다: " + path);
+				return;
+			}
+
+			btnExcelStart.setEnabled(false);
+			progressBar.setForeground(javax.swing.UIManager.getColor("ProgressBar.foreground"));
+
+			new Thread(() -> {
+				try {
+					processFile(targetFile);
+				} finally {
+					SwingUtilities.invokeLater(() -> {
+						progressBar.setForeground(new Color(0, 0, 0, 0));
+						btnExcelStart.setEnabled(true);
+					});
+				}
+			}).start();
+		});
 
 		// 도움말버튼 눌렀을때 리스너
 		btnHelp.addActionListener(e -> {
@@ -294,10 +327,10 @@ public class DocToTextApp extends JFrame {
 		btnExcelStart = new JButton("시작");
 		panel.add(btnExcelStart, gbc);
 
-		// 화이트리스트 검사대상 파일 선택 버튼 클릭여부 감지
+		// 엑셀업로드 파일찾기 클릭감지
 		btnExcelSelect.addActionListener(new FileSelectListener(excelTargetPath));
 
-        // 화이트리스트 검사 대상 파일 필드에서 드래그 앤 드롭 감지
+        // 엑셀 파일 필드에서 드래그 앤 드롭 감지
         excelTargetPath.setDropTarget(
 			new DropTarget(excelTargetPath
 			, DnDConstants.ACTION_COPY
@@ -342,6 +375,82 @@ public class DocToTextApp extends JFrame {
 		panel.add(progressBar, BorderLayout.SOUTH);
 
 		return panel;
+	}
+
+	// 시작 버튼 클릭시 메서드
+	private void processFile(File file) {
+		String password = null;
+
+		try {
+			FileProcessor.processFile(file, password, this::appendLog);
+		} catch (PasswordRequiredException e) {
+			appendLog("암호화된 파일입니다. 비밀번호 입력을 요청합니다.");
+
+			password = showPasswordDialog(file.getName());
+
+			if (password != null){
+				try {
+					FileProcessor.processFile(file, password, this::appendLog);
+				} catch (Exception ex) {
+					appendLog("비밀번호 오류 또는 추출 실패: " + ex.getMessage());
+				}
+			} else {
+				appendLog("비밀번호 입력이 취소되었습니다.");
+			}
+		} catch (Exception e) {
+			appendLog("에러 발생: " + e.getMessage());
+		}
+	}
+
+	// 비밀번호 입력 팝업창
+	private String showPasswordDialog(String fileName) {
+		JPasswordField pf = new JPasswordField();
+
+		// 팝업창 뜨자마자 textfield에 focus
+		pf.addAncestorListener(new javax.swing.event.AncestorListener(){
+			@Override
+			public void ancestorAdded(javax.swing.event.AncestorEvent event) {
+				pf.requestFocusInWindow();
+			}
+
+			@Override
+			public void ancestorRemoved(javax.swing.event.AncestorEvent event) {}
+
+			@Override
+			public void ancestorMoved(javax.swing.event.AncestorEvent event) {}
+		});
+
+		Object[] message = {
+			"'" + fileName + "' 파일은 암호화되어 있습니다.",
+			"비밀번호를 입력하세요: ",
+			pf
+		};
+		
+		int option = JOptionPane.showConfirmDialog(
+			this,
+			message,
+			"비밀번호 입력",
+			JOptionPane.OK_CANCEL_OPTION
+		);
+
+		if (option == JOptionPane.OK_OPTION){
+			return new String(pf.getPassword());
+		}
+
+		return null;
+	}
+
+	// 로그출력 메서드
+	public void appendLog(String message) {
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+		String timeStr = LocalTime.now().format(formatter);
+
+		SwingUtilities.invokeLater(() -> {
+			if (logArea != null){
+				logArea.append("[" + timeStr  + "] " + message + "\n");
+				logArea.setCaretPosition(logArea.getDocument().getLength());
+			}
+		});
 	}
 
 
