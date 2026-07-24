@@ -71,9 +71,6 @@ public class ExcelExtractor {
 			}
 		}
 		return sb.toString();
-
-		
-		// String fileName = file.getName().toLowerCase();
 	}
 
 	

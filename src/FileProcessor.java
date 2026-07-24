@@ -38,20 +38,10 @@ public class FileProcessor {
 		if (logger != null){
 			logger.accept("HWPX 파일 분석 시작: " + file.getName());			
 		}
-		
-		return HwpxExtractor.extract(file, password, logger);
-	}
 
-	// 최종 파일이 다운로드될 경로를 지정
-	private static File getDownloadsFolder() {
-		String userHome = System.getProperty("user.home");
-		File baseDir = new File(userHome + File.separator + "Downloads");
-
-		if (!baseDir.exists()){
-			baseDir.mkdirs();
-		}
-
-		return baseDir;
+		String textContent = HwpxExtractor.extract(file, password, logger);
+		File savedFile = saveToTxtFile(file, textContent, logger);
+		return savedFile.getAbsolutePath();
 	}
 
 	// 파일 저장 메서드

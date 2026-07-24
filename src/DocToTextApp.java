@@ -135,6 +135,7 @@ public class DocToTextApp extends JFrame {
 
 		 JTabbedPane tabbedPane = new JTabbedPane();
 		 tabbedPane.addTab("엑셀(.xlsx)", createExcelTabPanel());
+		 tabbedPane.addTab("한글(.hwpx)", createHwpxTabPanel());
 
 		 phasePanel.add(tabbedPane, gbc);
 
@@ -175,11 +176,42 @@ public class DocToTextApp extends JFrame {
 
 			new Thread(() -> {
 				try {
-					processFile(targetFile);
+					onExcelStartClicked();
 				} finally {
 					SwingUtilities.invokeLater(() -> {
 						progressBar.setForeground(new Color(0, 0, 0, 0));
 						btnExcelStart.setEnabled(true);
+					});
+				}
+			}).start();
+		});
+
+		// 한글파일 변환시작 버튼 리스너
+		btnHwpxStart.addActionListener(e -> {
+			String path = hwpxTargetPath.getText();
+
+			if (path == null || path.trim().isEmpty()){
+				appendLog("HWPX 파일을 먼저 선택해 주세요.");
+				return;
+			}
+
+			File targetFile = new File(path);
+
+			if (!targetFile.exists() || !targetFile.isFile()){
+				appendLog("해당 경로에 실제 파일이 존재하지 않습니다: " + path);
+				return;
+			}
+
+			btnHwpxStart.setEnabled(false);
+			progressBar.setForeground(javax.swing.UIManager.getColor("ProgressBar.foreground"));
+
+			new Thread(() -> {
+				try {
+					onHwpxStartClicked();
+				} finally {
+					SwingUtilities.invokeLater(() -> {
+						progressBar.setForeground(new Color(0, 0, 0, 0));
+						btnHwpxStart.setEnabled(true);
 					});
 				}
 			}).start();
@@ -227,6 +259,42 @@ public class DocToTextApp extends JFrame {
 				showHelpDialog(true, false);
 			});
 		}
+	}
+
+	// 엑셀탭 눌렀을때
+	private void onExcelStartClicked() {
+		String path = excelTargetPath.getText().trim();
+		if (path.isEmpty()){
+			appendLog("엑셀 파일을 선택해 주세요.");
+			return;
+		}
+
+		if (!path.toLowerCase().endsWith(".xlsx") && !path.toLowerCase().endsWith(".xls")){
+			JOptionPane.showMessageDialog(this,
+				"[엑셀]파일만 선택 가능합니다.",
+				"확장자 오류", JOptionPane.WARNING_MESSAGE);
+			appendLog("잘못된 파일 형식: 엑셀 파일이 아닙니다.");
+			return;
+		}
+		processFile(new File(path));
+	}
+
+	// HWPX탭 눌렀을때
+	private void onHwpxStartClicked() {
+		String path = hwpxTargetPath.getText().trim();
+		if (path.isEmpty()){
+			appendLog("HWPX 파일을 선택해 주세요.");
+			return;
+		}
+
+		if (!path.toLowerCase().endsWith(".hwpx")){
+			JOptionPane.showMessageDialog(this,
+				"[HWPX]파일만 선택 가능합니다.",
+				"확장자 오류", JOptionPane.WARNING_MESSAGE);
+			appendLog("잘못된 파일 형식: HWPX 파일이 아닙니다.");
+			return;
+		}
+		processFile(new File(path));
 	}
 
 
@@ -335,6 +403,48 @@ public class DocToTextApp extends JFrame {
 			new DropTarget(excelTargetPath
 			, DnDConstants.ACTION_COPY
 			, new FileDropTargetListener(excelTargetPath)));
+
+		return panel;
+	}
+
+
+	// [탭 2] HWPX 전용 패널 생성
+	private JPanel createHwpxTabPanel() {
+		JPanel panel = new JPanel(new GridBagLayout());
+		panel.setBorder(BorderFactory.createEmptyBorder(25, 15, 15, 15));
+
+		GridBagConstraints gbc = new GridBagConstraints();
+		gbc.fill = GridBagConstraints.HORIZONTAL;
+
+		gbc.insets = new Insets(10, 10, 10, 10);
+		gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.0;
+		panel.add(new JLabel("HWPX 파일:"), gbc);
+		gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
+		hwpxTargetPath = new JTextField(20);
+		hwpxTargetPath.setEditable(false);
+		panel.add(hwpxTargetPath, gbc);
+
+		gbc.gridx = 2; gbc.gridy = 0; gbc.weightx = 0.0;
+		btnHwpxSelect = new JButton("파일 선택");
+		panel.add(btnHwpxSelect, gbc);
+
+		gbc.insets = new Insets(25, 10, 10, 10);
+		gbc.gridx = 0; gbc.gridy = 4;
+		gbc.gridwidth = GridBagConstraints.REMAINDER;
+		gbc.fill = GridBagConstraints.BOTH;
+		gbc.ipady = 25; // 두껍게
+		gbc.weightx = 1.0;
+		btnHwpxStart = new JButton("시작");
+		panel.add(btnHwpxStart, gbc);
+
+		// HWPX업로드 파일찾기 클릭감지
+		btnHwpxSelect.addActionListener(new FileSelectListener(hwpxTargetPath));
+
+        // HWPX 파일 필드에서 드래그 앤 드롭 감지
+        hwpxTargetPath.setDropTarget(
+			new DropTarget(hwpxTargetPath
+			, DnDConstants.ACTION_COPY
+			, new FileDropTargetListener(hwpxTargetPath)));
 
 		return panel;
 	}
